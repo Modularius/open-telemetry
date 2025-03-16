@@ -1,0 +1,4 @@
+.direnv/*
+*.pyc
+*.csv
+Jupyter/cache/*.json
