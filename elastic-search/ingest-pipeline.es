@@ -1,5 +1,8 @@
-PUT _ingest/pipeline/extract-parent-span-id
-{
+curl
+-u ${ES_USERNAME}:${ES_PASSWORD}
+-H ${ES_HEADER}
+-XPUT
+-d'{
   "description": "Extracts parentSpanID from References if a reference exists with refType equal to CHILD_OF.",
   "processors": [
     {
@@ -17,4 +20,5 @@ PUT _ingest/pipeline/extract-parent-span-id
       }
     }
   ]
-}
+}'
+${ES_HOST}/_ingest/pipeline/extract-parent-span-id6

@@ -11,7 +11,7 @@ PUT _ilm/policy/OTel-Storage
         }
       },
       "delete": {
-        "min_age": "3d",
+        "min_age": "7d",
         "actions": {
           "delete": {
             "delete_searchable_snapshot": true
