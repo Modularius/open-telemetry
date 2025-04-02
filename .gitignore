@@ -3,6 +3,6 @@
 *.csv
 Jupyter/cache/*.json
 result.json
-certs/*
-kibanadata/*
-data
+Binds/certs/*
+Binds/kibanadata/*
+Binds/data
