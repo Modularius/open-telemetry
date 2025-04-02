@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import numpy as np
 from lib import filter_bool_must_terms, filter_term_op_name, convert_es_to_python_dateformat, ESQuery
+from es import aggs
 
 ### These functions count the number of different types of documents
 ### and bins them by time.
@@ -11,11 +12,7 @@ from lib import filter_bool_must_terms, filter_term_op_name, convert_es_to_pytho
 def do_counting(client, index: str, es_query: ESQuery, hist_freq: str, format: str) -> Dict[str,Any]:
     query = { "bool" : { "filter": es_query.get_queries() } }
     
-    histogram = { "hist": {    
-        "date_histogram": {
-            "field": "startTimeMillis", "fixed_interval": hist_freq, "format": format
-        }
-    } }
+    histogram = { "hist": aggs.DateHistogramAgg("startTimeMillis", hist_freq, format) }
     
     filters = {
         "count_traces": filter_term_op_name("process_digitiser_trace_message"),
@@ -48,10 +45,8 @@ def get_frame_children_by_run(client, index: str, es_query: ESQuery) -> Dict[str
     es_query.add_service_and_op_name("nexus-writer", "Frame Event List")
     query = { "bool" : { "filter": es_query.get_queries() } }
     
-    by_run = { "by_run": { "terms": {
-        "field": "parentSpanID",
-        "size": 10000,
-    } } }
+    by_run = { "by_run": aggs.TermsAgg("parentSpanID", 10000) }
+              
     body = {
         "query": query,
         "aggregations": by_run,
