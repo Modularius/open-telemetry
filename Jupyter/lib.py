@@ -51,4 +51,3 @@ class ESQuery:
     
     def get_queries_with(self, extras):
         return self.queries + extras
-    
