@@ -3,3 +3,5 @@
 *.csv
 Jupyter/cache/*.json
 result.json
+certs/*
+data
