@@ -3,3 +3,6 @@
 *.csv
 Jupyter/cache/*.json
 result.json
+certs/*
+kibanadata/*
+data

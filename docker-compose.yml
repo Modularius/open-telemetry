@@ -49,7 +49,7 @@ services:
           unzip config/certs/certs.zip -d config/certs;
         fi;
         echo "Setting file permissions"
-        chown -R root:root config/certs;
+        chown -R ubuntu:ubuntu config/certs;
         find . -type d -exec chmod 750 \{\} \;;
         find . -type f -exec chmod 640 \{\} \;;
         echo "Waiting for Elasticsearch availability";
@@ -114,7 +114,8 @@ services:
     mem_limit: 8g
     volumes:
       - ./certs:/usr/share/elasticsearch/config/certs
-      - /mnt/extension/esdata4:/usr/share/elasticsearch/data
+      - ./data:/usr/share/elasticsearch/data
+      #- /mnt/extension/esdata4:/usr/share/elasticsearch/data
 
   kibana:
     profiles:
@@ -128,6 +129,7 @@ services:
     volumes:
       - ./certs:/usr/share/kibana/config/certs
       - ./kibanadata:/usr/share/kibana/data
+    user: "1000"
     ports:
       - ${KIBANA_PORT}:5601
     environment:
