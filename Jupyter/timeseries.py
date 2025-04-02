@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import numpy as np
 from lib import filter_bool_must_terms, filter_term_op_name, convert_es_to_python_dateformat, ESQuery
-from es import aggs
+import es
 
 ### These functions count the number of different types of documents
 ### and bins them by time.
@@ -12,23 +12,25 @@ from es import aggs
 def do_counting(client, index: str, es_query: ESQuery, hist_freq: str, format: str) -> Dict[str,Any]:
     query = { "bool" : { "filter": es_query.get_queries() } }
     
-    histogram = { "hist": aggs.DateHistogramAgg("startTimeMillis", hist_freq, format) }
+    histogram = { "hist": es.aggs.DateHistogram("startTimeMillis", hist_freq, format) }
     
     filters = {
-        "count_traces": filter_term_op_name("process_digitiser_trace_message"),
-        "count_digitiser_eventlists": filter_term_op_name("process_digitiser_event_list_message"),
-        "count_frame_eventlists": filter_term_op_name("process_frame_assembled_event_list_message"),
-        "count_Frames": filter_term_op_name("Frame"),
-        "count_incomplete_Frames": filter_bool_must_terms([
-            { "operationName": "Frame" }, { "tag.frame_is_expired": "true" }
+        "count_traces": es.query.Term("operationName", "process_digitiser_trace_message"),
+        "count_digitiser_eventlists": es.query.Term("operationName", "process_digitiser_event_list_message"),
+        "count_frame_eventlists": es.query.Term("operationName", "process_frame_assembled_event_list_message"),
+        "count_Frames": es.query.Term("operationName", "Frame"),
+        "count_incomplete_Frames": es.query.Bool(must=[
+            es.query.Term("operationName", "Frame"),
+            es.query.Term("tag.frame_is_expired", "true")
         ]),
-        "count_discarded_digitiser_eventlists": filter_bool_must_terms([
-            { "operationName": "process_digitiser_event_list_message" }, { "tag.is_discarded": "true" }
+        "count_discarded_digitiser_eventlists": es.query.Bool(must=[
+            es.query.Term("operationName", "process_digitiser_event_list_message"),
+            es.query.Term("tag.is_discarded", "true")
         ]),
     }
     
     aggregations = histogram
-    aggregations["hist"]["aggregations"] = filters
+    aggregations["hist"]["aggs"] = { "by_op_name": es.aggs.Filters(filters) }
 
     body = {
         "query": query,
@@ -45,7 +47,7 @@ def get_frame_children_by_run(client, index: str, es_query: ESQuery) -> Dict[str
     es_query.add_service_and_op_name("nexus-writer", "Frame Event List")
     query = { "bool" : { "filter": es_query.get_queries() } }
     
-    by_run = { "by_run": aggs.TermsAgg("parentSpanID", 10000) }
+    by_run = { "by_run": es.aggs.Terms("parentSpanID", 10000) }
               
     body = {
         "query": query,
@@ -61,9 +63,9 @@ def get_frame_children_by_run(client, index: str, es_query: ESQuery) -> Dict[str
     return num_by_run
 
 def get_runs(client, index: str, es_query: ESQuery):
-    op_name_query = { "term": { "operationName": "Run" } }
+    op_name_query = es.query.Term("operationName", "Run")
     musts = es_query.get_queries_with([ op_name_query])
-    query = { "bool" : { "must": musts } }
+    query = es.query.Bool(must=musts)
 
     fields = ["startTime", "duration", "spanID", "tag.run_name", "tag.instrument_name", "tag.run_has_run_stop"]
     body = {
@@ -83,21 +85,22 @@ def get_runs(client, index: str, es_query: ESQuery):
 def process_counts(result):
     data = []
     for bucket in result["hist"]["buckets"]:
-        trace = bucket["count_traces"]["doc_count"]
-        evtlist = bucket["count_digitiser_eventlists"]["doc_count"]
+        filter_buckets = bucket["by_op_name"]["buckets"]
+        trace = filter_buckets["count_traces"]["doc_count"]
+        evtlist = filter_buckets["count_digitiser_eventlists"]["doc_count"]
         if trace != evtlist:
             time = bucket["key_as_string"]
             #print(f"Trace/Event List mismatch at {time}: {trace}/{evtlist}")
-        frame_evtlist = bucket["count_frame_eventlists"]["doc_count"]
-        frames = bucket["count_Frames"]["doc_count"]
+        frame_evtlist = filter_buckets["count_frame_eventlists"]["doc_count"]
+        frames = filter_buckets["count_Frames"]["doc_count"]
         if frame_evtlist != frames:
             time = bucket["key_as_string"]
             #print(f"Frame Event List/Frame mismatch at {time}: {frame_evtlist}/{frames}")
         data.append({
-            "digitiser_eventlists": bucket["count_digitiser_eventlists"]["doc_count"],
-            "Frames": bucket["count_Frames"]["doc_count"],
-            "incomplete_Frames": bucket["count_incomplete_Frames"]["doc_count"],
-            "discarded_digitiser_eventlists": bucket["count_discarded_digitiser_eventlists"]["doc_count"],
+            "digitiser_eventlists": filter_buckets["count_digitiser_eventlists"]["doc_count"],
+            "Frames": filter_buckets["count_Frames"]["doc_count"],
+            "incomplete_Frames": filter_buckets["count_incomplete_Frames"]["doc_count"],
+            "discarded_digitiser_eventlists": filter_buckets["count_discarded_digitiser_eventlists"]["doc_count"],
             "times": datetime.fromtimestamp(bucket["key"]/1_000)
         })
     return data
