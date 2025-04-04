@@ -36,6 +36,10 @@ def Max(field: str) -> AggBuilder:
     
     return AggBuilder("max", json, False)
 
+def Cardinality(field : str) -> AggBuilder:
+    cardinality = { "field": field }
+    return AggBuilder("cardinality", cardinality)
+
 def BucketScript(buckets_path: Json, script: str) -> AggBuilder:
     bucket_script = { "buckets_path": buckets_path, "script": script }
     
@@ -72,3 +76,8 @@ def Filters(filters : Json) -> AggBuilder:
     filters = { "filters": filters }
             
     return AggBuilder("filters", filters)
+
+def Boxplot(field : Json) -> AggBuilder:
+    boxplot = { "field": field }
+            
+    return AggBuilder("boxplot", boxplot)
